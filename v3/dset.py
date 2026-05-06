@@ -1,40 +1,49 @@
-import os, random
+from __future__ import annotations
+from pathlib import Path
+import random
 from glob import glob
-from typing import List, Optional, Callable
-
-from PIL.Image import Image
+from typing import List, Callable
 from torch.utils.data import Dataset
 
-def _pics_from_dir(d: Optional[str]) -> List[str]:
-	if not d:
-		return []
-	if not os.path.isdir(d):
-		return []
-	return [p for p in glob(os.path.join(d, '*')) if p.lower().endswith(('.jpg', '.png', '.jpeg'))]
-
+def _pics_from_dir(d: str | Path | None, /) -> List[str]:
+	if not d: return []
+	if isinstance(d, str): d = Path(d)
+	if not d.is_dir(): return []
+	files = glob(str(d / '*'))
+	return [p for p in files if p.lower().endswith(('.jpg', '.png', '.jpeg'))]
 
 class DirDataset(Dataset):
 	def __init__(self, 
-		real_dir: Optional[str] = None, 
-		fake_dir: Optional[str] = None, 
-		transform: Optional[Callable] = None, 
+		dir: str | Path | DirDataset, 
+		sub: str | None = None,
+		/, *,
+		transform: Callable | None = None, 
 		shuffle: bool = True,
+		limit: int | None = None,
 	):
-
 		self.transform = transform
 		self.samples: List[tuple[str, int]] = []
-
-		reals = _pics_from_dir(real_dir)
-		fakes = _pics_from_dir(fake_dir)
-
-		self.samples += [(p, 1) for p in reals]
+		if isinstance(dir, DirDataset):
+			self.samples = list(dir.samples)
+			if limit is not None:
+				limit = int(limit)
+				self.samples = self.samples[:limit]
+			if shuffle: random.shuffle(self.samples)
+			return
+		elif dir is None: dir = Path.cwd()
+		elif isinstance(dir, str | Path): dir = Path(dir)
+		if sub is not None:
+			s = dir / sub
+			if s.is_dir(): dir = s
+		reals = _pics_from_dir(dir / 'real')
+		fakes = _pics_from_dir(dir / 'fake')
+		if limit is not None:
+			limit = int(limit)
+			reals = reals[:limit]
+			fakes = fakes[:limit]
 		self.samples += [(p, 0) for p in fakes]
-
-		if shuffle:
-			random.shuffle(self.samples)
-
-		if len(self.samples) == 0:
-			print('Warning: DirDataset created with 0 samples')
+		self.samples += [(p, 1) for p in reals]
+		
 
 	def __len__(self) -> int:
 		return len(self.samples)
@@ -44,32 +53,17 @@ class DirDataset(Dataset):
 		img = self.transform(path) if self.transform else path
 		return img, label
 
-class SimpleFileDataset(Dataset):
-	def __init__(self, 
-		filepaths: list[str], 
-		transform: Optional[Callable] = None, 
-		targets: Optional[list[int]] = None,
-	):
-		# filter out missing files so DataLoader workers won't error
-		existing = [p for p in filepaths if os.path.exists(p)]
-		missing = len(filepaths) - len(existing)
-		if missing > 0:
-			print(f'Warning: {missing} paths in filelist were missing and will be skipped')
-		self.filepaths = existing
-		self.transform = transform
-		self.targets = targets
+	def __add__(self, # type: ignore[override]
+		other: DirDataset,
+	) -> DirDataset: 
+		if not isinstance(other, DirDataset):
+			return NotImplemented
+		# Create instance without calling __init__ to avoid re-scanning dirs
+		new = object.__new__(DirDataset)
+		new.transform = self.transform
+		# Merge samples (left then right) and shuffle
+		new.samples = list(self.samples) + list(other.samples)
+		random.shuffle(new.samples)
+		return new
 
-	def __len__(self):
-		return len(self.filepaths)
 
-	def __getitem__(self, idx):
-		p = self.filepaths[idx]
-		# Delegate loading to the transform to avoid loading the same image twice.
-		img = self.transform(p) if self.transform else p
-		# placeholder label: when using simple filelists you should provide
-		# labels separately; default to `fake` (0) as a safe placeholder.
-		if self.targets is not None:
-			label = self.targets[idx]
-		else:
-			label = 0
-		return img, label

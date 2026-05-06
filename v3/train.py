@@ -1,85 +1,111 @@
-import os, torch
-import torch.nn as nn
-
-try: from . import dset, helper
+import torch
+from datetime import datetime as dt
+from pathlib import Path
+from typing import Callable
+try: from . import helper
 except ImportError:
-	import helper, dset
+	import helper
 
-set_model = helper.set_model
+__all__ = ['train']
 
-def train(filepaths: dset.DirDataset | list[str], epochs: int = 3, batch_size: int = 32):
-	# Train head for two-class detection: 0=fake, 1=real.
-	# This version uses a standard CrossEntropy loss over definite labels.
-	if filepaths is None:
-		raise ValueError("filepaths must be provided (use --filelist to pass a newline-separated file of paths)")
-
+@helper.timer
+def train(
+	filepaths: helper.DirDataset | str | Path, 
+	/, *, epochs: int = 3, 	
+	batch_size: int = 64,
+	ohkeep: float = 0.5, 
+	ohwarmup: int = 1,
+	ohalpha: float = 0.5,
+	clip: float = 1.0,
+	freeze: int = 0,
+	limit: int | None = None,
+	lr: float = 5e-4,
+	wd: float = 1e-5,
+	check: Callable|None=None,
+):
+	# Train for two-class detection: 0=fake, 1=real.
+	# Supports optional Online Hard Example Mining (OHEM).
 	# training transform (with augmentations)
-	tr = helper.transform(train=True)
-	ds = filepaths if isinstance(filepaths, dset.DirDataset) \
-	else dset.SimpleFileDataset(filepaths, transform=tr)
-	ds.transform = tr
+	filepaths = helper.DirDataset(filepaths, 'train',
+		limit=limit, shuffle=True,
+		transform=helper.transform(train=True),
+	)
+	ohalpha = float(ohalpha)
+	if not (0.0 <= ohalpha <= 1.0):
+		raise ValueError('ohalpha must be between 0 and 1')
+	
 	device = helper.best_device()
+	train_loader = torch.utils.data.DataLoader(
+		filepaths, batch_size=batch_size, shuffle=True, 
+		num_workers=4, persistent_workers=True)
 
-	train_loader = torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle=True, num_workers=4)
+	treinable = helper.freeze(freeze)
+	opt = torch.optim.AdamW(treinable, lr=lr, weight_decay=wd)
 
-	# For simplicity: fully fine-tune the model (unfreeze all params)
-	for p in helper.model.parameters():
-		p.requires_grad = True
-
+	scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau( opt, 
+		mode='max', factor=0.7, patience=0, 
+		threshold=0.005, min_lr=1e-5, cooldown=0, )
 	helper.model.to(device)
-	opt = torch.optim.AdamW(helper.model.parameters(), 
-		lr=1e-4, weight_decay=1e-5)
-	# Reduce LR when a monitored metric has stopped improving.
-	scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-		opt, mode='min', factor=0.5, patience=1)
-	criterion = nn.CrossEntropyLoss(reduction='mean')
+	centropy = torch.nn.CrossEntropyLoss(reduction='none')
+	print('Starting training...')
 	for epoch in range(epochs):
+		if callable(check): check()
 		helper.model.train()
-		total_loss = 0.0
+		now = dt.now()
+		total_loss = torch.tensor(0.0, device=device)
 		total = 0
-		correct_total = 0
+		correct_total = torch.tensor(0, device=device)
+		selected_total = 0
 		for batch in train_loader:
 			xb, yb = batch
-			xb = xb.to(device)
-			yb = yb.to(device)
+			xb = xb.to(device, non_blocking=True)
+			yb = yb.long().to(device, non_blocking=True)
 
-			logits = helper.model(xb)
-			loss = criterion(logits, yb)
+			logits = helper.expand(helper.model(xb))
+			losses = centropy(logits, yb)
+
+			# Apply OHEM: pick top-k hardest samples per batch (after warmup)
+			if epoch >= ohwarmup:
+				n = int(losses.numel())
+				if ohkeep >= 1:
+					k = min(n, int(ohkeep))
+				else:
+					k = max(1, int(ohkeep * n))
+				hard_losses, _ = torch.topk(losses, k)
+				# Weighted mix between OHEM mean and full-batch mean
+				batch_mean = losses.mean()
+				ohmean = hard_losses.mean()
+				loss = ohalpha * ohmean + (1.0 - ohalpha) * batch_mean
+				n_selected = k
+				selected_total += k
+			else:
+				loss = losses.mean()
+				n_selected = int(losses.numel())
+				selected_total += n_selected
 
 			opt.zero_grad()
 			loss.backward()
+			torch.nn.utils.clip_grad_norm_(helper.model.parameters(), clip)
 			opt.step()
 
 			batch_size_actual = int(yb.size(0))
 			total += batch_size_actual
-			total_loss += float(loss.detach().cpu().item())
-			preds = logits.detach().argmax(dim=1)
-			correct_total += int((preds == yb).sum().item())
-
-		train_acc = correct_total / total if total > 0 else 0.0
+			total_loss += loss.detach() * n_selected
+			probs = logits.softmax(dim=1)
+			preds = probs.argmax(dim=1)
+			correct_total += (preds == yb).sum()
+		helper.retrained = True
+		train_acc = correct_total.item() / total if total > 0 else 0.0
+		avg_loss = total_loss.item() / (selected_total if selected_total > 0 else 1)
 		scheduler.step(train_acc)
 		current_lr = opt.param_groups[0]['lr']
+		
+		print(dt.now() - now)
 		print(f'Epoch {epoch+1}/{epochs}', 
-			f'loss={total_loss:.4f}',
+			f'loss={avg_loss:.4f}',
 			f'acc={train_acc:.3f}',
-			f'lrate={current_lr:.2e}')
-	helper.retrained = True
-
-if __name__ == '__main__':
-	import argparse
-	p = argparse.ArgumentParser()
-	p.add_argument('--model', '-m', 
-		default='model_temp', 
-		help='model name (e.g. efficientnet_b0, etc.)')
-	p.add_argument('--epochs', '-e', type=int, default=2)
-	p.add_argument('--folder', '-f', type=str, default=None, help='optional folder to read from (overrides --filelist)')
-	args = p.parse_args()
-	filepaths = []
-	if not args.folder:
-		raise ValueError("Please provide a folder with --folder containing 'real/' and 'fake/' subfolders with training images.")
-	filepaths = dset.DirDataset(
-		os.path.join(args.folder, 'real'), 
-		os.path.join(args.folder, 'fake'), 
-	)
-	helper.set_model(args.model) # model always uses global num_classes (2)
-	train(filepaths=filepaths, epochs=args.epochs)
+			f'lr={current_lr:.2e}',
+			f'wd={wd:.1e}',
+		)
+	if callable(check): check()
+	

@@ -1,54 +1,40 @@
-import torch, cv2
 import numpy as np
-from PIL.Image import Image
-
+from typing import List, Optional, Sequence
 from pathlib import Path
-from typing import Sequence
+from PIL import Image as pil
 
+import torch
 from torch import Tensor
+
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 
-try: from . import dset, helper
+try: from . import helper
 except ImportError:
-	import helper, dset
+	import helper
 
-# 1) Build model (EfficientNet backbone)
+__all__ = ['heatmap', 'predict', 'evaluate_folder']
 
-# if reset_classifier not available:
-# model.classifier = nn.Linear(in_features, 1)
-
-# binary output -> BCEWithLogitsLoss
-
-# Match training mapping: 0 = fake, 1 = real
-LABEL_NAMES = ['fake', 'real']
-LABEL = {n: i for i, n in enumerate(LABEL_NAMES)}
-
-set_model = helper.set_model
-
-def predict_and_heatmap(img_bgr) -> tuple[float, np.ndarray]:
-	"""Return `real` probability and heatmap(s).
-
-	- If `both=False` (default) returns: `(real_prob, heatmap_fake_or_None)` (backwards-compatible).
-	- If `both=True` returns: `(real_prob, heatmap_fake_or_None, heatmap_real_or_None)`.
-
-	Gate: if `real_prob >= thresh` returns heatmaps as None (same behavior as before).
-	"""
-	img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB).astype(np.uint8)
+@helper.timer
+def heatmap(img_rgb) -> tuple[float, pil.Image]:
+	# Predict probability of "real" and generate a Grad-CAM heatmap for the input pil
+	# This function uses the difference between the "real" and "fake" class activations to produce a single heatmap.
+	if isinstance(img_rgb, str):
+		img_rgb = pil.open(img_rgb).convert('RGB')
 	tr = helper.transform()
 	device = helper.best_device()
-	tensor = tr(img_rgb).unsqueeze(0).to(device)
+	tensor = tr(img_rgb)
+	tensor = tensor.unsqueeze(0).to(device, non_blocking=True)  # type: ignore
 
 	helper.model.eval()
+	helper.model.to(device)
 	with torch.no_grad():
-		logits = helper.model(tensor)
-
-	probs = torch.softmax(logits.detach().squeeze(0), dim=0) if isinstance(logits, torch.Tensor) else torch.tensor(np.array(logits)).float()
-	real_prob = float(probs[LABEL['real']].item())
+		logits = helper.expand(helper.model(tensor))
+		probs = logits.softmax(dim=1)
 
 	# find last Conv2d as target layer
-	layer = getattr(helper, 'conv_head', None)
+	layer = getattr(helper.model, 'conv_head', None)
 	if layer is None:
 		for m in reversed(list(helper.model.modules())):
 			if isinstance(m, torch.nn.Conv2d):
@@ -57,10 +43,10 @@ def predict_and_heatmap(img_bgr) -> tuple[float, np.ndarray]:
 		if layer is None:
 			raise RuntimeError('target layer for Grad-CAM not found')
 
-	def cam_target(label: str, cam: GradCAM):
-		tgt = ClassifierOutputTarget(LABEL[label])
+	def cam_target(label: str , cam: GradCAM):
+		tgt = ClassifierOutputTarget(helper.LABEL[label])
 		greyscale = cam(input_tensor=tensor, targets=[tgt])[0] # type: ignore
-		return cv2.resize(greyscale, (img_rgb.shape[1], img_rgb.shape[0]))
+		return np.array(pil.fromarray(greyscale).resize(img_rgb.size))
 	
 	with GradCAM(model=helper.model, target_layers=[layer]) as cam:
 		fake_cam_img = cam_target('fake', cam)
@@ -68,109 +54,58 @@ def predict_and_heatmap(img_bgr) -> tuple[float, np.ndarray]:
 		greyscale = fake_cam_img - real_cam_img
 		min, max = greyscale.min(), greyscale.max()
 		greyscale = (greyscale - min) / (max - min + 1e-8)
-		cam_img = show_cam_on_image(img_rgb.astype(np.float32) / 255.0, greyscale, use_rgb=True)
-		cam_img = cv2.cvtColor(cam_img, cv2.COLOR_RGB2BGR)
-	return real_prob, cam_img
+		
+		cam_img = show_cam_on_image(np.array(img_rgb) / 255.0, greyscale, use_rgb=True)
+	return probs[0, helper.LABEL['real']].item(), pil.fromarray(cam_img)
 
-def predict(img_bgr) -> float:
-	tr = helper.transform(); device = helper.best_device()
-	img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB).astype(np.uint8)
-	with torch.no_grad():
-		probs = helper.model(tr(img_rgb).unsqueeze(0).to(device))
-	p = torch.softmax(probs, dim=1)[:, LABEL['real']].squeeze().item()
-	return p
+def predict(imgs_rgb: Sequence | Tensor) -> List[float]:
+	# Predict probabilities of "real" for a batch of input pil images or tensors.
+	# Returns a list of floats in [0,1].
+	if not imgs_rgb or not len(imgs_rgb):
+		return []
 
-
-def predict_batch(imgs_bgr: Sequence | Tensor) -> np.ndarray:
-	"""Predict a batch. Delegate loading/conversion to `model.transform()`.
-
-	Inputs accepted:
-	- `Tensor` (N,C,H,W) or (C,H,W)
-	- sequence of `Tensor` (C,H,W)
-	- sequence of numpy arrays, PIL Images, or path-like objects
-	"""
-	if not imgs_bgr or not len(imgs_bgr):
-		return np.array([])
-
+	device = helper.best_device()
+	helper.model.eval()
+	helper.model.to(device)
 	# single tensor batch
-	if isinstance(imgs_bgr, Tensor) and imgs_bgr.ndim == 3:
-		imgs_bgr.unsqueeze_(0).unsqueeze_(0)
+	if isinstance(imgs_rgb, Tensor) and imgs_rgb.ndim == 3:
+		imgs_rgb.unsqueeze_(0).unsqueeze_(0)
 	
 	# sequence of tensors -> assume already transformed
 	tr = helper.transform()
 	tensors = []
-	for t in imgs_bgr:
+	for t in imgs_rgb:
 		if not isinstance(t, Tensor):
 			t = tr(t)
 		if t.ndim == 4 and t.shape[0] == 1:
 			t = t.squeeze(0)
 		tensors.append(t)
-	batch = torch.stack(tensors)
-	device = helper.best_device()
-	if batch.device.type != device.type:
-		batch = batch.to(device)
+	batch = torch.stack(tensors).to(device, 
+		non_blocking=True)
 	with torch.no_grad():
-		logits = helper.model(batch)
-	return torch.softmax(logits, dim=1)[:, LABEL['real']].cpu().numpy()
+		logits = helper.expand(helper.model(batch))
+		probs = logits.softmax(dim=1)[:, helper.LABEL['real']]
+		probs = probs.cpu().tolist()
+	return probs
 
-def evaluate_folder(test_dir: str, batch_size: int = 16, thresh: float = 0.6):
-	"""Evaluate a test folder using dset.DirDataset, predict_batch and helper.compare.
-
-	Expects `test_dir` to contain subfolders `real/` and `fake/`.
-	This function uses the dataset discovery from `dset.DirDataset` (samples list),
-	reads images with OpenCV (BGR), runs `predict_batch` and then maps labels to
-	the ground-truth encoding expected by `helper.compare` (real=0.999, fake=0.001).
-	"""
-	td = Path(test_dir)
-	ds = dset.DirDataset(str(td / 'real'), str(td / 'fake'), shuffle=True)
-	
-	probs, ylabels = [], []
-	for i in range(0, len(ds), batch_size):
-		batch = [ds[j] for j in range(i, min(i + batch_size, len(ds)))]
+@helper.timer
+def evaluate_folder(
+	test_dir: str | Path | helper.DirDataset, 
+	batch_size: int = 64, 
+	thresh: float = 0.7,
+	limit: Optional[int] = None,
+) -> float:
+	# Run prediction on all images in the specified folder (with 'real' and 'fake' subfolders) 
+	# This is a simple evaluation function 
+	# that processes the test set in batches and prints out the percentages of wrong/sure/dunno predictions based on the specified threshold.
+	test_dir = helper.DirDataset(test_dir, 'test',
+		shuffle=True, limit=limit, transform=helper.transform(train=False))
+	probs: list = [] 
+	ylabels: list = []
+	for i in range(0, len(test_dir), batch_size):
+		batch = [test_dir[j] for j in range(i, min(i + batch_size, len(test_dir)))]
 		imgs, labels = zip(*batch)
 		if not imgs: continue
-		batch_probs = predict_batch(imgs)
-		probs.extend(list(batch_probs))
-		ylabels.extend([1 if int(l)==1 else 0 for l in labels[:len(batch_probs)]])
-
-	p_arr = np.array(probs)
-	helper.compare(p_arr, ylabels, thresh=thresh)
-	return p_arr, ylabels
-
-# Example usage
-if __name__ == '__main__':
-	import argparse
-	from datetime import datetime as dt
-	# get cli arguments
-
-	parser = argparse.ArgumentParser()
-	parser.add_argument('--model', '-m', type=str, default='model_temp', help='model name (e.g. efficientnet_b0, etc.)')
-	parser.add_argument('--image', '-i', type=str, default='frame.jpg')
-	parser.add_argument('--eval', '-e', type=str, default=None, help='path to test folder (subfolders per label) to compute accuracy')
-	parser.add_argument('--cpu', action='store_true', help='force CPU usage even if GPU available')
-	args = parser.parse_args()
-	
-	helper.best_device(args.cpu)
-	helper.set_model(args.model)
-	# expose model as module-level name so predict_batch/evaluate use it
-
-	# If evaluation requested, run and exit
-	if args.eval is not None:
-		now = dt.now()
-		evaluate_folder(args.eval)
-		print(dt.now() - now)
-		exit(0)
-
-	img = cv2.imread(args.image)
-	if img is None:
-		raise SystemExit('frame.jpg not found or unreadable')
-	
-	now = dt.now()
-	prob, cam_img = predict_and_heatmap(img)
-	print(f'Proba real: {prob*100:.2f} %')
-	print(dt.now() - now)
-
-	if cam_img is not None:
-		fname = 'heatmap.jpg'
-		cv2.imwrite(fname, cam_img)
-		print(fname)
+		probs.extend(predict(imgs))
+		ylabels.extend(labels[:len(imgs)])
+	return helper.compare(probs, ylabels, thresh=thresh)
