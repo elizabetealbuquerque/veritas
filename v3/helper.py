@@ -1,5 +1,3 @@
-from ast import Lambda
-
 import joblib
 from pathlib import Path
 from typing import Sequence, cast
@@ -25,6 +23,7 @@ __all__ = [
 	'freeze', 'best_device', 'timer',
 	'transform', 'to_pil', 'expand', 'compare', 
 ]
+
 # Match training mapping: 0 = fake, 1 = real
 LABEL_NAMES = ['fake', 'real', 'other']
 # map names to class indices used by the model: fake=0, real=1, other=2
@@ -159,27 +158,22 @@ def best_device(cpu=False) -> torch.device:
 # 				break
 # 			except Exception: pass
 
-def to_pil(img) -> pil.Image:
+def to_pil(img) -> pil.Image | Tensor:
+	if isinstance(img, Tensor):
+		return img
 	if isinstance(img, str):
 		img = pil.open(img)
 	if not isinstance(img, pil.Image):
-		return cast(pil.Image, to_pil_image(img))
+		img = cast(pil.Image, to_pil_image(img))
 	# Handle palette images with transparency (P mode with tRNS) and other
 	# alpha-bearing formats. Convert such images to RGBA first to avoid the
 	# PIL user warning, then composite onto a white background and return RGB.
-	if img.mode == 'P':
-		# PIL uses 'transparency' info for palette-based alpha
-		if 'transparency' in getattr(img, 'info', {}):
-			img = img.convert('RGBA')
-			bg = pil.new('RGBA', img.size, (255, 255, 255, 255))
-			img = pil.alpha_composite(bg, img).convert('RGB')
-		else:
-			img = img.convert('RGB')
-	elif img.mode in ('RGBA', 'LA'):
+	is_p = img.mode == 'P' and 'transparency' in getattr(img, 'info', {})
+	if img.mode in ['RGBA', 'LA'] or is_p:
 		# Composite alpha over white background
 		bg = pil.new('RGBA', img.size, (255, 255, 255, 255))
-		img = pil.alpha_composite(bg, img.convert('RGBA')).convert('RGB')
-	elif img.mode != 'RGB':
+		img = pil.alpha_composite(bg, img.convert('RGBA'))
+	if img.mode != 'RGB':
 		img = img.convert('RGB')
 	return img
 
@@ -211,7 +205,7 @@ def transform(train: bool = False, norm: bool = True) -> Callable[..., Tensor]:
 	if norm: compose.append(tforms.Normalize(
 		mean=cfg['mean'], std=cfg['std'],
 	))
-	if train: compose[2:2] = [
+	if train: compose[3:3] = [
 		tforms.GaussianBlur(kernel_size=3, sigma=(0.1, 2.0)),
 		tforms.RandomRotation(degrees=15),
 		tforms.RandomHorizontalFlip(p=0.5),

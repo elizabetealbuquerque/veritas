@@ -31,14 +31,18 @@ def parse_args(argv) -> argparse.Namespace:
 def main():
 	argv = list(sys.argv[1:])
 
-	model_name = Path(argv.pop(1))
-	if not model_name.is_file():
+	first = argv[0]
+	if first == 'merge':
+		argv = argv[1:]
+		return cli_merge(argv)
+	model_path = Path(argv.pop(1))
+	if not model_path.is_file():
 		raise ValueError(f'Please provide a valid model') from None
 	
 	argv = parse_args(argv)
 	argv.image = Path(argv.image) if argv.image else None
 	pedrita.best_device(getattr(argv, 'cpu', False))
-	pedrita.set_model(model_name)
+	pedrita.set_model(model_path)
 	
 	now = dt.now()
 	dict(
@@ -89,5 +93,20 @@ def cli_video(argv):
 		num_frames=argv.nframes,
 	)
 	print(results)
+
+def cli_merge(argv):
+	# alpha is always 0.5
+	# model paths in order
+	# destination is third path or models/merged.pkl
+	mnames = [Path(p) for p in argv[0:2]]
+	outname = Path(argv[2]) if len(argv) >= 3 else Path('models/merged.pkl')
+	if not all(m.is_file() for m in mnames):
+		raise ValueError(f'Please provide two valid model files to merge') from None
+	m_a = pedrita.set_model(mnames[0])
+	m_b = pedrita.set_model(mnames[1])
+	out_model = pedrita.merge(m_a, m_b, alpha=0.5)
+	pedrita.set_model(out_model)
+	print('Merged model: ')
+	pedrita.save_model(outname)
 
 if __name__ == '__main__': main()

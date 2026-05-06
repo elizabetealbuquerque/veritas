@@ -2,6 +2,7 @@ import numpy as np
 from typing import List, Optional, Sequence
 from pathlib import Path
 from PIL import Image as pil
+from datetime import datetime as dt
 
 import torch
 from torch import Tensor
@@ -61,51 +62,52 @@ def heatmap(img_rgb) -> tuple[float, pil.Image]:
 def predict(imgs_rgb: Sequence | Tensor) -> List[float]:
 	# Predict probabilities of "real" for a batch of input pil images or tensors.
 	# Returns a list of floats in [0,1].
-	if not imgs_rgb or not len(imgs_rgb):
+	if imgs_rgb is None:
 		return []
 
 	device = helper.best_device()
 	helper.model.eval()
 	helper.model.to(device)
-	# single tensor batch
-	if isinstance(imgs_rgb, Tensor) and imgs_rgb.ndim == 3:
-		imgs_rgb.unsqueeze_(0).unsqueeze_(0)
-	
-	# sequence of tensors -> assume already transformed
-	tr = helper.transform()
-	tensors = []
-	for t in imgs_rgb:
-		if not isinstance(t, Tensor):
-			t = tr(t)
-		if t.ndim == 4 and t.shape[0] == 1:
-			t = t.squeeze(0)
-		tensors.append(t)
-	batch = torch.stack(tensors).to(device, 
-		non_blocking=True)
+
+	if not isinstance(imgs_rgb, Tensor):
+		tr = helper.transform(train=False)
+		imgs_rgb = [tr(img) for img in imgs_rgb]
+		imgs_rgb = torch.stack(imgs_rgb)
+
+	# If already a batched tensor [B,C,H,W]
+	while imgs_rgb.ndim <= 3:
+		# single image tensor C,H,W -> make batch
+		imgs_rgb.unsqueeze_(0)
+	batch = imgs_rgb.to(device, non_blocking=True)
 	with torch.no_grad():
 		logits = helper.expand(helper.model(batch))
 		probs = logits.softmax(dim=1)[:, helper.LABEL['real']]
-		probs = probs.cpu().tolist()
-	return probs
+		return probs.cpu().tolist()
 
 @helper.timer
 def evaluate_folder(
 	test_dir: str | Path | helper.DirDataset, 
-	batch_size: int = 64, 
+	batch_size: int = 32, 
 	thresh: float = 0.7,
 	limit: Optional[int] = None,
 ) -> float:
 	# Run prediction on all images in the specified folder (with 'real' and 'fake' subfolders) 
 	# This is a simple evaluation function 
 	# that processes the test set in batches and prints out the percentages of wrong/sure/dunno predictions based on the specified threshold.
+	now = dt.now()
 	test_dir = helper.DirDataset(test_dir, 'test',
 		shuffle=True, limit=limit, transform=helper.transform(train=False))
+	print(dt.now() - now)
 	probs: list = [] 
 	ylabels: list = []
-	for i in range(0, len(test_dir), batch_size):
-		batch = [test_dir[j] for j in range(i, min(i + batch_size, len(test_dir)))]
-		imgs, labels = zip(*batch)
-		if not imgs: continue
-		probs.extend(predict(imgs))
-		ylabels.extend(labels[:len(imgs)])
+	for b in range(0, len(test_dir), batch_size):
+		batch_imgs = []
+		batch_labels = []
+		for i in range(b, min(b + batch_size, len(test_dir))):
+			img, label = test_dir[i]
+			batch_imgs.append(img)
+			batch_labels.append(label)
+		batch_imgs = torch.stack(batch_imgs)
+		probs.extend(predict(batch_imgs))
+		ylabels.extend(batch_labels)
 	return helper.compare(probs, ylabels, thresh=thresh)

@@ -1,12 +1,15 @@
 import torch
+import copy
 from datetime import datetime as dt
 from pathlib import Path
 from typing import Callable
+import torch.nn as nn
+
 try: from . import helper
 except ImportError:
 	import helper
 
-__all__ = ['train']
+__all__ = ['train', 'merge']
 
 @helper.timer
 def train(
@@ -44,7 +47,7 @@ def train(
 
 	scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau( opt, 
 		mode='max', factor=0.7, patience=0, 
-		threshold=0.005, min_lr=1e-5, cooldown=0, )
+		threshold=0.005, min_lr=5e-6, cooldown=0, )
 	helper.model.to(device)
 	centropy = torch.nn.CrossEntropyLoss(reduction='none')
 	print('Starting training...')
@@ -65,24 +68,16 @@ def train(
 			losses = centropy(logits, yb)
 
 			# Apply OHEM: pick top-k hardest samples per batch (after warmup)
+			loss = losses.mean()
+			k = n = int(losses.numel())
 			if epoch >= ohwarmup:
-				n = int(losses.numel())
-				if ohkeep >= 1:
-					k = min(n, int(ohkeep))
-				else:
-					k = max(1, int(ohkeep * n))
+				k = min(n, int(ohkeep)) if ohkeep >= 1.0 else max(1, int(ohkeep * n))
 				hard_losses, _ = torch.topk(losses, k)
 				# Weighted mix between OHEM mean and full-batch mean
-				batch_mean = losses.mean()
 				ohmean = hard_losses.mean()
-				loss = ohalpha * ohmean + (1.0 - ohalpha) * batch_mean
-				n_selected = k
-				selected_total += k
-			else:
-				loss = losses.mean()
-				n_selected = int(losses.numel())
-				selected_total += n_selected
+				loss = ohalpha * ohmean + (1.0 - ohalpha) * loss
 
+			selected_total += k
 			opt.zero_grad()
 			loss.backward()
 			torch.nn.utils.clip_grad_norm_(helper.model.parameters(), clip)
@@ -90,7 +85,7 @@ def train(
 
 			batch_size_actual = int(yb.size(0))
 			total += batch_size_actual
-			total_loss += loss.detach() * n_selected
+			total_loss += loss.detach() * k
 			probs = logits.softmax(dim=1)
 			preds = probs.argmax(dim=1)
 			correct_total += (preds == yb).sum()
@@ -109,3 +104,28 @@ def train(
 		)
 	if callable(check): check()
 	
+def merge(model_a: nn.Module, model_b: nn.Module, alpha: float = 0.6) -> nn.Module:
+	"""Merge two `nn.Module` instances (same architecture) by averaging weights.
+
+	Both inputs must be `torch.nn.Module` instances with identical architectures.
+	Returns a new `nn.Module` (deepcopy of `model_a`) with averaged parameters.
+	"""
+	if not isinstance(model_a, nn.Module) or not isinstance(model_b, nn.Module):
+		raise ValueError("merge expects two nn.Module instances")
+
+	out_model = copy.deepcopy(model_a)
+	sd_a = model_a.state_dict()
+	sd_b = model_b.state_dict()
+
+	merged = {}
+	for k in sd_a.keys():
+		if k not in sd_b:
+			raise RuntimeError(f"Key {k} missing in model_b")
+		a = sd_a[k].cpu()
+		b = sd_b[k].cpu()
+		if a.shape != b.shape:
+			raise RuntimeError(f"Shape mismatch for {k}: {a.shape} vs {b.shape}")
+		merged[k] = (alpha * a) + ((1.0 - alpha) * b)
+
+	out_model.load_state_dict(merged)
+	return out_model

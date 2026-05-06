@@ -1,9 +1,11 @@
 from __future__ import annotations
 from pathlib import Path
 import random
+from datetime import datetime as dt
 from glob import glob
 from typing import List, Callable
 from torch.utils.data import Dataset
+random.seed(dt.now().timestamp())
 
 def _pics_from_dir(d: str | Path | None, /) -> List[str]:
 	if not d: return []

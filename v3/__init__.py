@@ -3,13 +3,13 @@ try:
 	from . import helper
 	from .predict import *
 	from .video import *
-	from .train import train
+	from .train import *
 except Exception:
 	# Fallback for environments where package context still isn't available
 	import helper
 	from predict import *
 	from video import *
-	from train import train
+	from train import *
 
 # Convenience re-exports for commonly used helpers
 set_model = helper.set_model
