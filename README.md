@@ -87,6 +87,28 @@ python v3 train models/ultra_7.pkl -i /caminho/para/treino --epochs 3 -l 1000
 python v3 video models/ultra_7.pkl -v caminho/para/video.mp4 -n 30
 ```  
 
+## Onde estão as implementações
+
+- `v3/helper.py` — funções centrais (`set_model`, `best_device`, transforms, utilitários de I/O).
+- `v3/predict.py` — rotinas de predição/avaliação e helpers para gerar heatmaps/visualizações.
+- `v3/train.py` — loop de treino e hooks.
+- `v3/dset.py` — definição de `DirDataset` e outros datasets.
+
+## Links rápidos (arquivo no repo):
+- [v3/helper.py](v3/helper.py)
+- [v3/predict.py](v3/predict.py)
+- [v3/train.py](v3/train.py)
+- [v3/dset.py](v3/dset.py)
+
+## Contribuição  
+
+- Abra issues para bugs ou melhorias.  
+- Faça PRs pequenas e focadas; adicione testes quando possível.  
+
+## Licença
+
+Coloque aqui a licença do projeto, se aplicável.  
+
 ## Links importantes para o projeto.  
 DATSET: https://www.kaggle.com/datasets/prithivsakthiur/deepfake-vs-real-60k  
 DATASET: https://www.kaggle.com/datasets/tristanzhang32/ai-generated-images-vs-real-images  
