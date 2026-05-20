@@ -1,7 +1,7 @@
-# Pedrita — Classificação de Imagens (repositório)
+# Veritas — Classificação de Imagens (repositório)
 
 Este repositório contém utilitários, modelos e scripts para treino e inferência
-de classificadores de imagem usados no projeto *Pedrita*.
+de classificadores de imagem usados no projeto *Veritas*.
 
 ## Estrutura principal
 - `v3/` — pacote principal com helpers, dataset, treino e predição.
