@@ -16,6 +16,13 @@ Treino — helpers para configuração de experimentos, data augmentation e cicl
 Predição — interfaces de inferência para identificar se uma imagem é autêntica ou de origem artificial  
 Avaliação — métricas e ferramentas para análise de desempenho e robustez dos modelos    
 
+## Estrutura principal  
+
+- `v3/` — pacote principal com helpers, dataset, treino e predição.  
+- `models/` — modelos serializados (`.pkl`, `.joblib`).  
+- `dataset/`, `faces/`, `diffusion/`, `outputs/` — pastas de dados e saídas.  
+- `pipeline.py` — exemplo de pipeline de treino/avaliação usado por desenvolvedores.  
+
 ## Instruções detalhadas para compilar e executar.  
 
 ## Links importantes para o projeto.  
