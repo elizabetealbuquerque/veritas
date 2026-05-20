@@ -40,6 +40,49 @@ OBS: o `requirements.txt` dentro de `v3/` lista dependências úteis como `torch
 
 ## Instruções detalhadas para compilar e executar.  
 
+O pacote `v3` fornece um ponto de entrada via `__main__` para uso por linha de comando. Há duas formas comuns de usar o repositório:
+
+**1) Usando o pacote como módulo Python (recomendado):**
+
+```bash
+# sintaxe geral
+python v3 test <model_path> -i <pasta> -l <quantidade>
+
+# exemplo prático: avalia pastas de imagens usando um modelo salvo
+python v3 test models/ultra_7.pkl -i faces -l 10000
+```
+
+Parâmetros principais:  
+
+- `<model_path>`: caminho para o arquivo do modelo serializado (por exemplo `models/Pedrita_v3.joblib`).  
+- `test`: subcomando para avaliação (outros subcomandos: `train`, `video`).  
+- `-i` / `--image`: pasta com imagens para avaliar (pasta com subpastas por classe).  
+- `-l` / `--limit`: limite do número de amostras a usar (opcional).  
+
+**2) Usando o pacote dentro de um script Python ou REPL:**  
+
+```python
+import v3 as pedrita
+pedrita.best_device()
+pedrita.set_model('models/ultra_7.pkl')
+ds = pedrita.DirDataset('./dataset/train', limit=3000)
+pedrita.train(ds, epochs=3, lr=5e-5)
+```
+
+## Exemplos adicionais de CLI
+
+**- Treinar com uma pasta organizada:**  
+
+```bash
+python v3 train models/ultra_7.pkl -i /caminho/para/treino --epochs 3 -l 1000
+```  
+
+**- Executar predição em vídeo:**  
+
+```bash
+python v3 video models/ultra_7.pkl -v caminho/para/video.mp4 -n 30
+```  
+
 ## Links importantes para o projeto.  
 DATSET: https://www.kaggle.com/datasets/prithivsakthiur/deepfake-vs-real-60k  
 DATASET: https://www.kaggle.com/datasets/tristanzhang32/ai-generated-images-vs-real-images  
