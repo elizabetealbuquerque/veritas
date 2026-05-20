@@ -9,6 +9,6 @@ de classificadores de imagem usados no projeto *Veritas*.
 **Nome da solução desenvolvida: Veritas**  
 
 
-Instruções detalhadas para compilar e executar.
-Breve descrição da solução, incluindo link para o Google Sites do projeto.
-
+#Instruções detalhadas para compilar e executar.  
+#Breve descrição da solução, incluindo link para o Google Sites do projeto.  
+ 
