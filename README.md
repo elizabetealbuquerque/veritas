@@ -12,9 +12,9 @@ de classificadores de imagem usados no projeto *Veritas*.
 Veritas (referenciada como Pedrita no repositório) é um projeto baseado em visão computacional voltada para a detecção de imagens manipuladas ou geradas por IA, centralizando utilitários, modelos e pipelines para treino e inferência de classificadores.
 O pacote principal, localizado em v3/, expõe uma API coesa com três responsabilidades principais:
 
-Treino — helpers para configuração de experimentos, data augmentation e ciclos de otimização de classificadores reais vs. sintéticos
-Predição — interfaces de inferência para identificar se uma imagem é autêntica ou de origem artificial
-Avaliação — métricas e ferramentas para análise de desempenho e robustez dos modelos  
+Treino — helpers para configuração de experimentos, data augmentation e ciclos de otimização de classificadores reais vs. sintéticos  
+Predição — interfaces de inferência para identificar se uma imagem é autêntica ou de origem artificial  
+Avaliação — métricas e ferramentas para análise de desempenho e robustez dos modelos    
 
 ## Instruções detalhadas para compilar e executar.  
 
