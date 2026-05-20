@@ -17,6 +17,6 @@ DATASET: https://www.kaggle.com/datasets/tristanzhang32/ai-generated-images-vs-r
 DATASET: https://www.kaggle.com/datasets/xhlulu/140k-real-and-fake-faces  
 DRIVE: https://drive.google.com/drive/folders/1ywYBYQ1KoG0kaChqxis3LcpLXM4J5CHt?usp=sharing  
 APLICAÇÃO: https://app-veritas.netlify.app  
-MIRO: https://miro.com/app/board/uXjVJQuHnVQ=/?share_link_id=526481362291
-GOOGLE SITES:
-FIGMA ATUALIZADO: 
+MIRO: https://miro.com/app/board/uXjVJQuHnVQ=/?share_link_id=526481362291  
+GOOGLE SITES:  
+FIGMA ATUALIZADO:   
