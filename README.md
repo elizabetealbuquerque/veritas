@@ -12,9 +12,9 @@ de classificadores de imagem usados no projeto *Veritas*.
 ## Instruções detalhadas para compilar e executar.  
 ## Breve descrição da solução
 ## Links importantes para o projeto.  
-DATABASE: https://www.kaggle.com/datasets/prithivsakthiur/deepfake-vs-real-60k  
-DATABASE: https://www.kaggle.com/datasets/tristanzhang32/ai-generated-images-vs-real-images  
-DATABASE: https://www.kaggle.com/datasets/xhlulu/140k-real-and-fake-faces  
+DATSET: https://www.kaggle.com/datasets/prithivsakthiur/deepfake-vs-real-60k  
+DATASET: https://www.kaggle.com/datasets/tristanzhang32/ai-generated-images-vs-real-images  
+DATASET: https://www.kaggle.com/datasets/xhlulu/140k-real-and-fake-faces  
 DRIVE: https://drive.google.com/drive/folders/1ywYBYQ1KoG0kaChqxis3LcpLXM4J5CHt?usp=sharing  
 APLICAÇÃO: https://app-veritas.netlify.app  
 MIRO: https://miro.com/app/board/uXjVJQuHnVQ=/?share_link_id=526481362291
