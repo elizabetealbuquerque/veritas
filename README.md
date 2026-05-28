@@ -204,11 +204,11 @@ Controlado no construtor do DirDataset, que extrai de forma independente a lista
 
 **Data Augmentation (Aumento de Dados no Treinamento):**  
 Para mitigar os problemas encontrados na inspeção (como o altíssimo realismo dos fakes e o viés trazido pelas pinturas/cartoons), foi implementada uma estratégia cirúrgica de Data Augmentation aplicada exclusivamente durante a fase de treino (train=True no método transform de helper.py):  
-● GaussianBlur(kernel_size=3, sigma=(0.1, 2.0)),
-● RandomRotation(degrees=15),
-● RandomHorizontalFlip(p=0.5),
-● RandomVerticalFlip(p=0.5),
-● ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.2 )
+● GaussianBlur(kernel_size=3, sigma=(0.1, 2.0)),  
+● RandomRotation(degrees=15),  
+● RandomHorizontalFlip(p=0.5),  
+● RandomVerticalFlip(p=0.5),  
+● ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.2 )  
 
 **Justificativa técnica das técnicas de Augmentation adotadas:**  
 
