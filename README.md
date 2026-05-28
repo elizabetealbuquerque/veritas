@@ -26,6 +26,24 @@ Treino — helpers para configuração de experimentos, data augmentation e cicl
 Predição — interfaces de inferência para identificar se uma imagem é autêntica ou de origem artificial  
 Avaliação — métricas e ferramentas para análise de desempenho e robustez dos modelos    
 
+## Contextualização
+**Problema abordado**
+O projeto Veritas enfrenta a crescente incapacidade de verificar, em escala e com agilidade, a autenticidade de imagens que circulam em fluxos intensos de informação digital. A proliferação de ferramentas de geração de imagens por inteligência artificial, como modelos de difusão latente e redes adversariais generativas (GANs), democratizou a produção de conteúdo visual sintético de altíssimo realismo, tornando a distinção entre imagens autênticas e fabricadas um desafio técnico sem precedentes. No âmbito político e institucional, esse cenário afeta diretamente campanhas eleitorais, coberturas de conflito armado e crises sanitárias, contextos nos quais a
+desinformação visual causa danos concretos e irreversíveis, corroendo a confiança pública nas instituições de imprensa e fragilizando os pilares da democracia deliberativa. No entanto, o impacto das imagens sintéticas não se restringe ao campo jornalístico ou político. No ambiente corporativo, imagens manipuladas têm sido utilizadas como instrumento de ataques à reputação de empresas e executivos, com a criação de supostas evidências visuais de escândalos, comportamentos inapropriados ou situações comprometedoras que nunca ocorreram. Tais conteúdos, uma vez viralizados, podem provocar quedas abruptas no valor de mercado de companhias,
+demissões injustificadas, rupturas contratuais e processos judiciais de alta complexidade, mesmo quando posteriormente desmentidos. Além disso, imagens geradas por IA têm sido exploradas como vetor de golpes e
+fraudes financeiras de grande sofisticação. Entre os padrões mais recorrentes estão: a falsificação de documentos e registros fotográficos para suporte a solicitações de crédito ou processos de seguro; a criação de identidades visuais falsas para aplicações de romance scam e burlas em plataformas de namoro; a simulação de eventos corporativos ou declarações públicas forjadas para manipular preços de
+ativos financeiros; e o uso de rostos sintéticos para burlar sistemas de verificação de identidade (KYC) em instituições bancárias e fintechs. Em todas essas dimensões, política, jornalística, corporativa e financeira, o
+denominador comum é a ausência de mecanismos automáticos, escaláveis e interpretáveis para triagem de conteúdo visual sintético. É precisamente essa lacuna que o Veritas se propõe a preencher.
+
+**Objetivo da solução**
+O objetivo central do Veritas é desenvolver um sistema inteligente de classificação binária capaz de determinar, a partir da análise de características latentes, padrões estatísticos e metadados de arquivos de imagem, se uma mídia visual é autêntica ou manipulada/sintética. O produto final visa fornecer a jornalistas, agências de checagem e investigadores digitais uma camada automatizada de triagem pericial, onde interpretabilidade, velocidade de inferência e robustez são requisitos tão críticos quanto a acurácia.
+
+**Domínio da aplicação**  
+O Veritas se posiciona na interseção entre jornalismo investigativo, perícia digital e aprendizado de máquina. O domínio de aplicação abrange ambientes reais de checagem de fatos, monitoramento de mídia e análise forense de conteúdo visual. O classificador opera sobre imagens estáticas nos formatos PNG e JPG, explorando artefatos e inconsistências deixados por processos de geração ou edição artificial, desde descontinuidades de frequência detectáveis via análise espectral até anomalias em canais de ruído, incoerências de iluminação e rastros forenses em metadados EXIF. O escopo futuro inclui a atribuição de proveniência gerativa, identificando a arquitetura de IA responsável pela geração da imagem.
+
+**Importância da análise exploratória para o projeto**  
+A Análise Exploratória de Dados (EDA) é etapa fundamental para o Veritas, pois permite compreender a distribuição das classes (imagens reais vs. sintéticas), identificar desequilíbrios que possam enviesar o treinamento, mapear padrões visuais e estatísticos que diferenciam as duas categorias, e orientar as decisões de pré-processamento e engenharia de features. Dado que o dataset conta com aproximadamente 100.000 registros de treino e 213 atributos, a EDA também é essencial para detectar outliers, valores ausentes e redundâncias que poderiam comprometer a qualidade e a generalização dos modelos treinados.
+
 ## Estrutura principal  
 
 - `v3/` — pacote principal com helpers, dataset, treino e predição.  
