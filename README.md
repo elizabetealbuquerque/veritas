@@ -138,7 +138,8 @@ No contexto de visão computacional, "as primeiras linhas" correspondem à lista
 numericamente em binário: 0 para imagens classificadas como fake (p. ex., exames sintéticos ou alterados) e 1 para imagens real (exames autênticos).
 
 **Tipos das variáveis:**  
-* Variável Independente (X): Caminho do arquivo (String/Path) que é transformado em um torch.Tensor de ponto flutuante com dimensões [C, H, W] (Canais, Altura, Largura) após o tratamento.
+
+    ● Variável Independente (X): Caminho do arquivo (String/Path) que é transformado em um torch.Tensor de ponto flutuante com dimensões [C, H, W] (Canais, Altura, Largura) após o tratamento.
 
     ● Variável Dependente (Y / Label): Inteiro (int), representando a classe
     (0 ou 1).
