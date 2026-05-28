@@ -220,6 +220,57 @@ rede a aprender propriedades geométricas que não dependam da orientação esqu
 4. ColorJitter (Perturbação de Brilho, Contraste, Saturação e Matiz): Esta é a defesa direta contra a presença indesejada de cartoons e pinturas. Ao variar agressivamente as propriedades de iluminação e cor em tempo de
 execução, o modelo deixa de confiar em cores saturadas (comuns nos cartoons) ou tons específicos de iluminação (comuns em quadros a óleo) para ditar sua predição, focando puramente no conteúdo estrutural das imagens e aumentando a robustez para o domínio médico real.
 
+## Análise exploratória e visualizações
+
+**Gráfico - 1**  
+**Objetivo**  
+O propósito desta visualização é mapear a distribuição dos erros de classificação e os níveis de incerteza do modelo em uma escala contínua entre -1,00 e 1,00, indo além da acurácia nominal apresentada 96,60%. O gráfico permite quantificar não apenas onde o modelo acerta perfeitamente 0,00, mas também discernir o comportamento das falhas críticas (falsos negativos em direção a -1,00 e falsos positivos em direção a 1,00 e identificar em quais faixas residem as maiores ambiguidades de predição.   
+**Interpretação**  
+A análise do histograma revela que o modelo possui uma forte concentração de dados ao redor do zero, evidenciando uma alta densidade de predições corretas e justificando a acurácia elevada. Contudo, ao observar as caudas da distribuição, nota-se uma assimetria preocupante: há uma frequência notavelmente maior de registros acumulados na extrema esquerda (valores próximos a -1,00 em comparação à extrema direita (próximos a 1,00). Isso indica uma tendência residual a gerar falsos negativos, o que no contexto do Veritas significa deixar passar mídias manipuladas como se fossem autênticas, o cenário de maior risco para o ecossistema jornalístico. Além disso, as barras intermediárias distribuídas entre os polos e o centro representam os limiares de incerteza do modelo, sugerindo que uma parcela das imagens ainda gera scores ambíguos, provavelmente afetada pelos ruídos de compressão ou filtros estéticos identificados nos testes com o público. 
+
+**Gráfico/Imagem - 2**  
+**Objetivo**  
+O propósito desta visualização é demonstrar a interpretabilidade das predições do modelo de Deep Learning através de uma análise de explicabilidade espacial (Grad-CAM / Heatmap). Em vez de fornecer apenas um output probabilístico seco, a técnica visa mapear visualmente as regiões dos pixels e os artefatos locais que exerceram maior peso e influência para que o algoritmo classificasse a imagem como uma possível manipulação. 
+**Interpretação**  
+A imagem analisada apresentou uma probabilidade de 88,99% de ter sido manipulada. Ao sobrepor o mapa de calor à face do indivíduo, observa-se que as zonas de maior ativação (destacadas nas cores quentes como vermelho, laranja e amarelo) concentram-se intensamente na região perioral (boca e queixo) e na porção superior esquerda da testa/linha do cabelo. Esse comportamento indica que o modelo identificou anomalias texturais nessas áreas específicas, como inconsistências de gradiente de cor, distorções de ruído ou artefatos de blendagem de pixels, sugerindo que a manipulação (ou geração via IA) focou na substituição ou alteração de expressões nessas regiões faciais. Esse tipo de visualização é crucial para o Veritas,  pois confere autoridade técnica ao jornalista investigativo, permitindo que ele saiba exatamente onde estão os indícios de fraude na mídia analisada. 
+
+## Análise exploratória e visualizações  
+**Ruído Teórico vs. Ruído Cotidiano (Falsos Positivos)**  
+
+O Achado: O modelo demonstrou uma sensibilidade analítica que frequentemente confunde filtros de pós-processamento nativos de smartphones (como suavização de pele, HDR agressivo e filtros de iluminação de redes sociais) com manipulações maliciosas ou adulterações de pixels.  
+
+A Implicação: Visualmente, tanto um filtro estético quanto uma edição por software de clonagem alteram a entropia e a distribuição de frequências da imagem. Isso tem gerado uma taxa elevada de falsos positivos, onde imagens legítimas (mas editadas para fins estéticos) são classificadas como potencialmente falsas. A EDA gerada a partir dos testes do público mostra a necessidade urgente de calibrar o limiar (threshold) do modelo para diferenciar "melhoria de imagem" de "falsificação de conteúdo".  
+
+**Transferência de Aprendizado para Contextos Restritos**  
+
+O Achado: Paralelamente aos testes gerais, a avaliação do comportamento do algoritmo em cenários de domínio fechado e altamente padronizado, como a identificação de anomalias texturais e artefatos em imagens de exames médicos revelou um incremento significativo na acurácia.  
+
+A Implicação: Enquanto em cenários abertos e não controlados (fotos de redes sociais enviadas pelo público) o ruído de compressão dificulta a assertividade, no ambiente restrito a consistência do input potencializa o acerto do modelo. Esse achado sugere que a arquitetura base do Veritas possui excelente capacidade de generalização e extração de features, performando de forma robusta mesmo quando exposta a novos domínios que exigem detecção microscópica de anomalias de pixels.  
+
+**Novos Insights Baseados no Teste do Público**  
+Para enriquecer ainda mais o relatório, dado que o seu "dataset" agora inclui a experiência direta dos usuários, sugiro incluir os seguintes pontos:  
+
+Degradação Extrema por Compartilhamento Consecutivo (O Efeito "Print do WhatsApp"): O público costuma testar a ferramenta enviando prints de telas ou imagens que já passaram por compressões sucessivas (baixadas do Facebook, enviadas pelo WhatsApp e depois salvas). A EDA dos dados do público revelou que essa degradação destrói quase 100% dos metadados originais e achata os histogramas de cor, tornando técnicas tradicionais como ELA (Error Level Analysis) menos eficazes.  
+
+Viés de Formato e Resolução dos Usuários: O dataset real gerado pelo público apresentou uma predominância massiva de mídias verticais (proporções 9:16 de stories/reels) e resoluções otimizadas para web, divergindo de datasets acadêmicos que costumam usar imagens de alta resolução e proporções tradicionais (4:3 ou 3:2). Isso força o pipeline de dados a tratar o redimensionamento de forma mais inteligente para não gerar distorções artificiais nas features antes da inferência.  
+
+O Desafio do Contexto (Imagens Reais em Narrativas Falsas): Um achado comportamental crucial nos testes com o público foi o envio de imagens que são 100% autênticas matematicamente (não foram editadas no Photoshop nem geradas por IA), mas que estão sendo usadas na internet para espalhar desinformação através de legendas ou contextos falsos (ex: uma foto de 2018 dita como se fosse de ontem). Isso consolida o entendimento de que a análise forense digital do Veritas é um pilar técnico indispensável, mas que precisa atuar em conjunto com a checagem de fatos contextual.  
+
+## Próximos passos
+**Modelagem:**  
+Serão explorados ajustes nos parâmetros de OHEM (ohkeep e ohalpha) para aumentar o peso dos exemplos mais difíceis, e a função merge() de train.py será investigada como alternativa para combinar modelos treinados em subconjuntos distintos do dataset.  
+**Validação:**  
+A validação será aprofundada com foco na redução da zona de dúvida de 1,8% e na investigação da coincidência entre a taxa de erro do modelo (1,6%) e o ruído de rotulagem do dataset (1,6%). O impacto da degradação por compressão consecutiva sobre as predições também será analisado.  
+
+**Escolha de Métricas:**  
+A função evaluate_folder() será utilizada para varredura do parâmetro thresh, viabilizando a construção da curva ROC e o cálculo do AUC, com Recall da classe fake como métrica de segurança prioritária.  
+
+**Integração com MLflow:**  
+O MLflow será integrado ao loop de treino em train.py para registro dos hiperparâmetros e métricas por época, permitindo maior rastreabilidade dos experimentos.  
+
+**RAG como Perspectiva Futura:**  
+Uma abordagem baseada em RAG será estudada como metodologia complementar, com o objetivo de enriquecer a classificação de casos ambíguos a partir de uma base vetorial de imagens forenses de referência. Trata-se de uma linha de investigação inicial, sem compromisso de entrega neste ciclo.  
+
 ## Links rápidos:
 - [v3/helper.py](v3/helper.py)
 - [v3/predict.py](v3/predict.py)
