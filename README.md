@@ -12,7 +12,11 @@ de classificadores de imagem usados no projeto *Veritas*.
   
 **Nome da disciplina:** Machine Learning I - School Innovation.   
 **Nome da instituição de ensino:** CESAR School.  
-**Nome da solução desenvolvida:** Veritas    
+**Nome da solução desenvolvida:** Veritas  
+
+## Introdução
+DISCLAIMER: Devido à participação do grupo na trilha de Innovation, as atividades deste projeto encontram-se distanciadas da disciplina tradicional de Projetos e de seus frameworks usuais de requisitos. Por isso, os parâmetros de modelagem, a seleção de variáveis e os requisitos de visualização gráfica apresentados a seguir foram estritamente personalizados e direcionados para atender às demandas
+técnicas e científicas específicas da cadeira de Machine Learning I (ML). O foco das análises reside na investigação forense digital, integridade de mídia e comportamento estatístico dos pixels, priorizando a coerência metodológica necessária para o desenvolvimento do modelo preditivo do Veritas.
 
 ## Breve descrição da solução  
 Veritas (referenciada como Pedrita no repositório) é um projeto baseado em visão computacional voltada para a detecção de imagens manipuladas ou geradas por IA, centralizando utilitários, modelos e pipelines para treino e inferência de classificadores.
