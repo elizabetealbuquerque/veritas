@@ -1,0 +1,5 @@
+.venv
+ver_arquiteturas.py
+.Rhistory
+dataset/
+mlruns/

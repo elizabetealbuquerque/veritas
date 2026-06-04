@@ -1,0 +1,21 @@
+# Deep Learning
+torch==2.5.1
+torchvision==0.20.1
+
+# Visão computacional
+timm==1.0.26
+Pillow==12.2.0
+opencv-python-headless==4.11.0.86
+grad-cam==1.5.4
+
+# MLflow
+mlflow==2.13.2
+
+# Métricas e análise
+scikit-learn==1.8.0
+numpy==1.26.4
+matplotlib==3.10.9
+
+# Utilitários
+joblib==1.5.3
+tqdm==4.67.3

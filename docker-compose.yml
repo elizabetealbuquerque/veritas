@@ -1,0 +1,16 @@
+version: "3.9"
+
+services:
+  veritas:
+    build: .
+    container_name: veritas-pipeline
+    ports:
+      - "5000:5000"       # MLflow UI acessível em http://localhost:5000
+    volumes:
+      # Dataset fora do container — montado como volume
+      - ./dataset:/app/dataset:ro
+      # MLruns persistido fora do container
+      - ./mlruns:/app/mlruns
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: "no"         # roda uma vez e para

@@ -1,0 +1,24 @@
+# Dataset — montado como volume, não vai para a imagem
+dataset/
+
+# MLflow runs — persistidos fora do container
+mlruns/
+
+# Ambiente virtual
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Gráficos gerados pelo pipeline
+*.png
+
+# Arquivos de desenvolvimento
+.git/
+.gitignore
+*.md
+notebooks/
+
+# Temporários
+*.tmp
+*.log
